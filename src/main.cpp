@@ -12,7 +12,7 @@ extern "C" {
 
 // Device Setup
 #define DEVICE_ID           "eddy"
-#define FW_VERSION          "0.0.1"
+#define FW_VERSION          "0.0.2"
 #define FW_NAME             "envelope"
 #define NUM_LEDS            3
 #define PIN_LEDS            D5
@@ -35,7 +35,7 @@ extern "C" {
 #define MQTT_FW_NAME        "fwname"
 #define MQTT_LAST_SEEN      "lastseen"
 #define MQTT_COMMAND        "command"
-#define MQTT_EYECOLOR       "eyecolor"
+#define MQTT_COLOR          "color"
 #define MQTT_OTA            "ota"
 #define MQTT_RSSI           "rssi"
 #define MQTT_LOCAL_IP       "localip"
@@ -50,9 +50,9 @@ extern "C" {
 #define MQTT_TOP_LOCAL_IP   MQTT_TOP_META MQTT_LOCAL_IP
 #define MQTT_TOP_SETTER     MQTT_TOP_BASE MQTT_WILD MQTT_SEP MQTT_SET
 #define MQTT_TOP_COMMAND    MQTT_TOP_BASE MQTT_COMMAND
-#define MQTT_TOP_EYECOLOR   MQTT_TOP_BASE MQTT_EYECOLOR
+#define MQTT_TOP_COLOR      MQTT_TOP_BASE MQTT_COLOR
 #define MQTT_TOP_CMD_SET    MQTT_TOP_COMMAND MQTT_SEP MQTT_SET
-#define MQTT_TOP_EYE_SET    MQTT_TOP_EYECOLOR MQTT_SEP MQTT_SET
+#define MQTT_TOP_CLR_SET    MQTT_TOP_COLOR MQTT_SEP MQTT_SET
 // OTA Setup
 #ifndef OTA_PW_HASH
     #define OTA_PW_HASH     "97c209ca505f2958db30a42135afab5c"  // md5("iot")
@@ -65,7 +65,7 @@ extern const char* mqtt_host;               // der einzig wahre Broker
 extern uint16_t mqtt_port;
 bool ota_activated = false;
 
-// ========== Stop editing config here!1" ==========
+// ========== Stop editing config here!1! ==========
 
 time_t now = 0;
 struct tm * timeinfo;
@@ -83,13 +83,6 @@ uint32_t yellow = pixels.Color(255, 255, 0);
 uint32_t green = pixels.Color(0, 255, 0);
 uint32_t black = pixels.Color(0, 0, 0);
 
-int get_hour() {
-    time(&now);
-    timeinfo = localtime(&now);
-    Serial.print("Hour: "); Serial.println(timeinfo->tm_hour);
-    return timeinfo->tm_hour;
-}
-
 char* get_datetime() {
     time(&now);
     timeinfo = localtime(&now);
@@ -103,27 +96,13 @@ bool mqtt_pub(const char* topic, const char* payload, bool retained = false) {
     return mqtt_client.publish(topic, payload, retained);
 }
 
-void wink() {
-    int hour = get_hour();
-    if(hour >= HOUR_START && hour < HOUR_STOP) {
-        Serial.println("wink!");
-        mqtt_pub(MQTT_TOP_COMMAND, "fishing");
-    } else {
-        mqtt_pub(MQTT_TOP_COMMAND, "sleeping");
-    }
-}
-
 void serial_comm() {
     // enable Serial communication
     while (Serial.available()) {
         String inputString = Serial.readString();
         inputString.trim();
         inputString.toLowerCase();
-        if(inputString == "wink") {
-            wink();
-        } else if(inputString == "hour") {
-            get_hour();
-        } else if(inputString == "datetime") {
+        if(inputString == "datetime") {
             get_datetime();
         } else {
             Serial.print("Ignoring: "); Serial.println(inputString);
@@ -141,7 +120,6 @@ void pixels_show(uint32_t color) {
 void pixels_setup() {
     pixels.begin();
     pixels.show();
-    // pixels.setBrightness(127);
 }
 
 void ota_setup() {
@@ -169,16 +147,14 @@ void mqtt_message(char* topic, byte* payload, unsigned int length) {
 
     if(strcmp(topic, MQTT_TOP_CMD_SET) == 0) {
         Serial.println("COMMAND");
-        if(strcmp(message, "wink") == 0) {
-            wink();
-        } else if(strcmp(message, "ota") == 0) {
+        if(strcmp(message, "ota") == 0) {
             ota_setup();
             mqtt_pub(MQTT_TOP_OTA, ota_activated ? "true" : "false", true);
         } else {
             Serial.print("Ignoring: "); Serial.println(message);
         }
-    } else if(strcmp(topic, MQTT_TOP_EYE_SET) == 0) {
-        Serial.println("EYECOLOR");
+    } else if(strcmp(topic, MQTT_TOP_CLR_SET) == 0) {
+        Serial.println("COLOR");
         if(strcmp(message, "red") == 0) {
             pixels_show(red);
         } else if(strcmp(message, "yellow") == 0) {
