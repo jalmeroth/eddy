@@ -20,7 +20,6 @@ extern "C" {
 #define DST_MIN             0               // One hour for summer time
 #define HOUR_START          6               // 06:00
 #define HOUR_STOP           21              // 21:59
-#define LEN_MAC_ADDR        13
 #define LEN_DATETIME        20              // 2018-01-26 20:54:42
 #define DELAY_RETRY         500
 // MQTT Setup
@@ -69,7 +68,6 @@ bool ota_activated = false;
 
 time_t now = 0;
 struct tm * timeinfo;
-char mac_addr[LEN_MAC_ADDR];
 char datetime[LEN_DATETIME];
 os_timer_t mqtt_update_timer;
 
@@ -124,10 +122,11 @@ void pixels_setup() {
 
 void ota_setup() {
     if(!ota_activated) {
-        ota_client.setHostname(mac_addr);
+        ota_client.setHostname(WiFi.hostname().c_str());
         ota_client.setPasswordHash(OTA_PW_HASH);
         ota_client.begin();
         Serial.println("OTA-Service up.");
+        Serial.print("  Hostname: "); Serial.println(ota_client.getHostname());
         ota_activated = true;
     }
 }
@@ -201,7 +200,7 @@ void mqtt_connect() {
     // Loop until we're reconnected
     Serial.print("Connecting to MQTT");
     while (!mqtt_client.connected()) {
-        mqtt_client.connect(mac_addr, MQTT_TOP_ONLINE, 1, true, "false");
+        mqtt_client.connect(WiFi.macAddress().c_str(), MQTT_TOP_ONLINE, 1, true, "false");
         delay(DELAY_RETRY);
         Serial.print(".");
     }
@@ -227,18 +226,12 @@ void time_setup() {
     Serial.print("  Time now: "); Serial.print(ctime(&now));
 }
 
-char* wifi_populate_mac() {
-    uint8_t mac[6];
-    WiFi.macAddress(mac);
-    snprintf(mac_addr, 13, "%02X%02X%02X%02X%02X%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-    return mac_addr;
-}
-
 void wifi_setup() {
     Serial.print("Connecting to: "); Serial.print(ssid);
     WiFi.persistent(false);
     WiFi.mode(WIFI_OFF);
     WiFi.mode(WIFI_STA);
+    WiFi.hostname(DEVICE_ID);
     WiFi.begin(ssid, pass);
     while(WiFi.status() != WL_CONNECTED) {
         delay(DELAY_RETRY);
@@ -246,7 +239,8 @@ void wifi_setup() {
     }
     Serial.println(" connected.");
     Serial.print("  IP address: "); Serial.println(WiFi.localIP());
-    Serial.print("  MAC address: "); Serial.println(wifi_populate_mac());
+    Serial.print("  MAC address: "); Serial.println(WiFi.macAddress().c_str());
+    Serial.print("  Hostname: "); Serial.println(WiFi.hostname().c_str());
 }
 
 void setup() {
