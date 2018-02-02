@@ -12,7 +12,7 @@ extern "C" {
 
 // Device Setup
 #define DEVICE_ID           "eddy"
-#define FW_VERSION          "0.0.2"
+#define FW_VERSION          "0.0.3"
 #define FW_NAME             "envelope"
 #define NUM_LEDS            3
 #define PIN_LEDS            D5
