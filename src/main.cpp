@@ -149,6 +149,8 @@ void mqtt_message(char* topic, byte* payload, unsigned int length) {
         if(strcmp(message, "ota") == 0) {
             ota_setup();
             mqtt_pub(MQTT_TOP_OTA, ota_activated ? "true" : "false", true);
+        } else if(strcmp(message, "restart") == 0) {
+            ESP.restart();
         } else {
             Serial.print("Ignoring: "); Serial.println(message);
         }
