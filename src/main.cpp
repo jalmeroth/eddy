@@ -2,6 +2,7 @@
 extern "C" {
     #include "user_interface.h"             // os_timer_t
 }
+#include <fs.h>
 #include <time.h>
 #include <Arduino.h>
 #include <myconfig.h>                       // General Setup
@@ -9,6 +10,7 @@ extern "C" {
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
 #include <Adafruit_Neopixel.h>
+#include <ESPAsyncWebServer.h>
 
 // Device Setup
 #define DEVICE_ID           "eddy"
@@ -75,6 +77,7 @@ WiFiClient wifi_client;
 PubSubClient mqtt_client(wifi_client);
 ArduinoOTAClass ota_client;
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUM_LEDS, PIN_LEDS, NEO_GRB + NEO_KHZ800);
+AsyncWebServer webserver(80);
 
 uint32_t red = pixels.Color(255, 0, 0);
 uint32_t yellow = pixels.Color(255, 255, 0);
@@ -108,16 +111,35 @@ void serial_comm() {
     }
 }
 
-void pixels_show(uint32_t color) {
+void _pixels_show(uint32_t color) {
     for(int i=0; i<NUM_LEDS; i++) {
         pixels.setPixelColor(i, color);
     }
     pixels.show();
 }
 
+void pixels_show(const char* color) {
+    if(strcmp(color, "red") == 0) {
+        _pixels_show(red);
+    } else if(strcmp(color, "yellow") == 0) {
+        _pixels_show(yellow);
+    } else if(strcmp(color, "green") == 0) {
+        _pixels_show(green);
+    } else if(strcmp(color, "black") == 0) {
+        _pixels_show(black);
+    } else if(strcmp(color, "test") == 0) {
+        pixels.setPixelColor(2, green);
+        pixels.setPixelColor(1, yellow);
+        pixels.setPixelColor(0, red);
+        pixels.show();
+    } else {
+        Serial.print("Ignoring: "); Serial.println(color);
+    }
+}
+
 void pixels_setup() {
     pixels.begin();
-    pixels.show();
+    _pixels_show(black);
 }
 
 void ota_setup() {
@@ -129,6 +151,31 @@ void ota_setup() {
         Serial.print("  Hostname: "); Serial.println(ota_client.getHostname());
         ota_activated = true;
     }
+}
+
+String processor(const String& var) {
+    if(var == "DEVICE_ID") {
+        return String(DEVICE_ID);
+    }
+    return String();
+}
+
+void web_setup() {
+    SPIFFS.begin();
+    webserver.serveStatic("/", SPIFFS, "/").setTemplateProcessor(processor).setDefaultFile("index.html");
+    webserver.on("/color/set", HTTP_POST,
+        [](AsyncWebServerRequest *request){
+            request->send(204);
+        },
+        [](AsyncWebServerRequest *request, const String& filename, size_t index, uint8_t *data, size_t len, bool final) {
+            Serial.println("UPLOAD");
+        },
+        [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total){
+            pixels_show((const char*)data);
+        }
+    );
+    webserver.begin();
+    Serial.println("Webserver started.");
 }
 
 bool mqtt_sub(const char* topic) {
@@ -156,22 +203,7 @@ void mqtt_message(char* topic, byte* payload, unsigned int length) {
         }
     } else if(strcmp(topic, MQTT_TOP_CLR_SET) == 0) {
         Serial.println("COLOR");
-        if(strcmp(message, "red") == 0) {
-            pixels_show(red);
-        } else if(strcmp(message, "yellow") == 0) {
-            pixels_show(yellow);
-        } else if(strcmp(message, "green") == 0) {
-            pixels_show(green);
-        } else if(strcmp(message, "black") == 0) {
-            pixels_show(black);
-        } else if(strcmp(message, "test") == 0) {
-            pixels.setPixelColor(2, green);
-            pixels.setPixelColor(1, yellow);
-            pixels.setPixelColor(0, red);
-            pixels.show();
-        } else {
-            Serial.print("Ignoring: "); Serial.println(message);
-        }
+        pixels_show(message);
     } else {
         Serial.println("UNKNOWN");
     }
@@ -254,6 +286,7 @@ void setup() {
     wifi_setup();
     time_setup();
     mqtt_setup();
+    web_setup();
     if(ota_activated) {
         ota_setup();
     }

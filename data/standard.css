@@ -1,0 +1,22 @@
+/* 2018-02-04 */
+
+html, body
+{
+	margin: 0;
+	padding: 0;
+	color: #000;
+	background-color: #FFF;
+	text-align: center;
+	font: 12px/normal "Helvetica Neue", Arial, Helvetica, Geneva, sans-serif;
+}
+
+/* @group wrap */
+
+#wrap
+{
+	margin: 20px auto;
+	width: 310px;
+	text-align: left;
+}
+
+/* @end */
